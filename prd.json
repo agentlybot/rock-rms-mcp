@@ -91,7 +91,7 @@
         "Handles missing weeks (holidays, cancellations) showing 0 or no service"
       ],
       "priority": 6,
-      "passes": false
+      "passes": true
     },
     {
       "id": "US-007",

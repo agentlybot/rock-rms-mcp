@@ -544,5 +544,132 @@ def get_group_roster(
     return {"groups": results, "count": len(results)}
 
 
+def _sundays_in_range(start_date: str, end_date: str) -> list[str]:
+    start = datetime.strptime(start_date, "%Y-%m-%d")
+    end = datetime.strptime(end_date, "%Y-%m-%d")
+    days_until_sunday = (6 - start.weekday()) % 7
+    current = start + timedelta(days=days_until_sunday)
+    sundays = []
+    while current <= end:
+        sundays.append(current.strftime("%Y-%m-%d"))
+        current += timedelta(days=7)
+    return sundays
+
+
+def _trend_direction(values: list[int | float]) -> str:
+    non_zero = [v for v in values if v > 0]
+    if len(non_zero) < 2:
+        return "insufficient data"
+    n = len(non_zero)
+    x_mean = (n - 1) / 2
+    y_mean = sum(non_zero) / n
+    num = sum((i - x_mean) * (v - y_mean) for i, v in enumerate(non_zero))
+    den = sum((i - x_mean) ** 2 for i in range(n))
+    if den == 0:
+        return "stable"
+    slope = num / den
+    pct = slope / y_mean if y_mean else 0
+    if pct > 0.02:
+        return "increasing"
+    elif pct < -0.02:
+        return "decreasing"
+    return "stable"
+
+
+@mcp.tool()
+def get_attendance_trends(
+    start_date: str,
+    end_date: str,
+    schedule: str | None = None,
+    location_group: str | None = None,
+) -> dict:
+    """Compare children's attendance across multiple weeks for trends and staffing.
+
+    Args:
+        start_date: Start of range in YYYY-MM-DD format.
+        end_date: End of range in YYYY-MM-DD format.
+        schedule: Filter to a specific service: "saturday", "9am", or "11am". Returns all if omitted.
+        location_group: Filter to a specific category like "Play House", "CG 1/2", etc.
+
+    Returns per-week breakdown by service and category, plus summary stats
+    (average, min, max, trend direction) across the date range.
+    """
+    sundays = _sundays_in_range(start_date, end_date)
+    if not sundays:
+        return {"error": "No Sundays found in the given date range"}
+
+    if schedule:
+        key = schedule.lower().strip()
+        if key not in SCHEDULES:
+            return {"error": f"Unknown schedule '{schedule}'. Valid: saturday, 9am, 11am"}
+        if key == "saturday":
+            service_sets = [("saturday", SCHEDULES["saturday"])]
+        else:
+            service_sets = [(key, SCHEDULES[key])]
+    else:
+        service_sets = [
+            ("saturday", SCHEDULES["saturday"]),
+            ("9am", SCHEDULES["9am"]),
+            ("11am", SCHEDULES["11am"]),
+        ]
+
+    weeks = []
+    totals_by_service: dict[str, list[int]] = {s[0]: [] for s in service_sets}
+
+    for sunday_str in sundays:
+        sunday_dt = datetime.strptime(sunday_str, "%Y-%m-%d")
+        saturday_str = (sunday_dt - timedelta(days=1)).strftime("%Y-%m-%d")
+
+        week_entry: dict = {"sunday": sunday_str, "services": {}, "week_total": 0}
+
+        for service_key, schedule_id in service_sets:
+            date_for_service = saturday_str if service_key == "saturday" else sunday_str
+            counts = _process_service(date_for_service, service_key, schedule_id)
+
+            if location_group:
+                counts = {k: v for k, v in counts.items() if k == location_group}
+
+            ordered = {cat: counts.get(cat, 0) for cat in CATEGORY_ORDER if cat in counts}
+            service_total = sum(ordered.values())
+
+            week_entry["services"][service_key] = {
+                "date": date_for_service,
+                "categories": ordered,
+                "total": service_total,
+            }
+            week_entry["week_total"] += service_total
+            totals_by_service[service_key].append(service_total)
+
+        weeks.append(week_entry)
+
+    summary: dict = {}
+    all_week_totals = [w["week_total"] for w in weeks]
+
+    for service_key, totals in totals_by_service.items():
+        if not totals:
+            continue
+        summary[service_key] = {
+            "average": round(sum(totals) / len(totals), 1),
+            "min": min(totals),
+            "max": max(totals),
+            "trend": _trend_direction(totals),
+        }
+
+    summary["overall"] = {
+        "average": round(sum(all_week_totals) / len(all_week_totals), 1),
+        "min": min(all_week_totals),
+        "max": max(all_week_totals),
+        "trend": _trend_direction(all_week_totals),
+    }
+
+    return {
+        "start_date": start_date,
+        "end_date": end_date,
+        "weeks_count": len(weeks),
+        "weeks": weeks,
+        "summary": summary,
+    }
+
+
 def main():
     mcp.run(transport="stdio")

@@ -101,3 +101,24 @@ Completed: 2026-03-09
 - GroupMemberStatus is an enum: 0=Inactive, 1=Active, 2=Pending
 - $expand=Person,GroupRole on GroupMembers gives nested person details and role name in one call
 - GroupLocations is a collection on Group; first entry's LocationId gives primary location
+Completed: 2026-03-09T14:22:37Z
+
+## Iteration 6 - US-006: Attendance trends tool
+Started: 2026-03-09T14:22:39Z
+Completed: 2026-03-09
+
+### What was built
+- get_attendance_trends tool: accepts start_date, end_date, optional schedule, optional location_group
+- Iterates over all Sundays in date range, fetches Saturday (preceding day) and Sunday services
+- Reuses existing _process_service helper for each date/schedule combo — no duplicated logic
+- Returns per-week breakdown with services, categories, and week totals
+- Summary stats per service and overall: average, min, max, trend direction
+- Trend direction uses linear regression slope as percentage of mean (>2% = increasing, <-2% = decreasing)
+- Missing weeks naturally show 0 totals when _process_service returns empty counts
+- location_group filter applies per-service to narrow to a single category
+
+### Learnings
+- Composing on _process_service avoids duplicating the occurrence/attendance fetch+categorize logic
+- Trend calculation: filtering out zero-attendance weeks before computing slope avoids holiday weeks skewing the trend
+- _sundays_in_range helper computes first Sunday >= start_date, then steps by 7 days
+- Saturday dates are derived as sunday - 1 day, keeping the week anchored on Sunday
