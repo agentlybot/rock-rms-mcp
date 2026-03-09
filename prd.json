@@ -104,7 +104,7 @@
         "Output formatted for easy LLM consumption"
       ],
       "priority": 7,
-      "passes": false
+      "passes": true
     }
   ]
 }

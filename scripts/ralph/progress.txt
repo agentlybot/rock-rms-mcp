@@ -122,3 +122,20 @@ Completed: 2026-03-09
 - Trend calculation: filtering out zero-attendance weeks before computing slope avoids holiday weeks skewing the trend
 - _sundays_in_range helper computes first Sunday >= start_date, then steps by 7 days
 - Saturday dates are derived as sunday - 1 day, keeping the week anchored on Sunday
+Completed: 2026-03-09T14:24:21Z
+
+## Iteration 7 - US-007: List schedules and locations reference tool
+Started: 2026-03-09T14:24:24Z
+Completed: 2026-03-09
+
+### What was built
+- list_schedules tool: returns all 3 Pelham children's schedules with IDs, keys, and times
+- list_locations tool: returns full location hierarchy with 9 categories, parent IDs, room details, and Saturday notes
+- Both are pure hardcoded data — zero API calls
+- Output includes usage hints directing LLMs to use keys/categories in other tool parameters
+
+### Learnings
+- Static reference tools are the simplest MCP pattern: no auth, no client, no error handling needed
+- Including "usage" field in output helps the LLM know how to chain these results into other tool calls
+- Saturday room structure (3 combined rooms vs 9 Sunday categories) is important context for the LLM
+- All 7 user stories now complete — project is fully implemented

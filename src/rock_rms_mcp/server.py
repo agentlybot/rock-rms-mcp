@@ -671,5 +671,99 @@ def get_attendance_trends(
     }
 
 
+@mcp.tool()
+def list_schedules() -> dict:
+    """List all Pelham children's ministry service schedules with their Rock RMS IDs.
+
+    Returns hardcoded schedule data — no API call needed. Use these schedule
+    names when calling get_attendance, get_checkin_roster, or get_attendance_trends.
+    """
+    return {
+        "schedules": [
+            {"id": 1711, "name": "Saturday", "key": "saturday", "time": "5:00 PM Saturday"},
+            {"id": 1723, "name": "9am", "key": "9am", "time": "9:00 AM Sunday"},
+            {"id": 1716, "name": "11am", "key": "11am", "time": "11:00 AM Sunday"},
+        ],
+        "usage": "Pass the 'key' value (saturday, 9am, 11am) as the schedule parameter to other tools.",
+    }
+
+
+@mcp.tool()
+def list_locations() -> dict:
+    """List the Pelham children's building location hierarchy with Rock RMS IDs.
+
+    Returns hardcoded location data — no API call needed. Use these category
+    names when filtering by location_group in get_attendance or get_attendance_trends.
+    """
+    return {
+        "campus": "Pelham",
+        "ministry": "Children's",
+        "locations": [
+            {
+                "category": "Play House",
+                "parent_id": 13739,
+                "description": "Nursery through Pre-K",
+                "rooms": [
+                    {"name": "Ladybugs", "id": 13741, "note": "Saturday only"},
+                ],
+            },
+            {
+                "category": "Tree House 1F",
+                "parent_id": 13749,
+                "description": "Kindergarten",
+                "rooms": [
+                    {"name": "Hedgehogs", "id": 13756, "note": "Saturday only"},
+                ],
+            },
+            {
+                "category": "Tree House 2F",
+                "parent_id": 13766,
+                "description": "1st-2nd Grade (Sunday only)",
+                "rooms": [],
+            },
+            {
+                "category": "Quest",
+                "parent_id": 13776,
+                "description": "Sunday only",
+                "rooms": [],
+            },
+            {
+                "category": "CG 1/2",
+                "parent_id": 13777,
+                "description": "Camp Grace 1st/2nd Grade",
+                "rooms": [
+                    {"name": "Squirrels", "id": 13759, "note": "Saturday only"},
+                ],
+            },
+            {
+                "category": "CG 3/4 Girls",
+                "parent_id": 13777,
+                "description": "Camp Grace 3rd/4th Grade Girls (Sunday only)",
+                "rooms": [],
+            },
+            {
+                "category": "CG 3/4 Boys",
+                "parent_id": 13777,
+                "description": "Camp Grace 3rd/4th Grade Boys (Sunday only)",
+                "rooms": [],
+            },
+            {
+                "category": "Up & Out",
+                "parent_id": 13765,
+                "description": "5th Grade (Sunday only)",
+                "rooms": [],
+            },
+            {
+                "category": "Mosaic",
+                "parent_id": 13762,
+                "description": "Special needs (Sunday only)",
+                "rooms": [],
+            },
+        ],
+        "saturday_notes": "Saturday has 3 combined rooms: Ladybugs (Play House), Hedgehogs (Tree House), Squirrels (Camp Grace).",
+        "usage": "Pass a 'category' value as the location_group parameter to other tools.",
+    }
+
+
 def main():
     mcp.run(transport="stdio")
