@@ -98,8 +98,10 @@ for ((i=1; i<=MAX_ITERATIONS; i++)); do
     echo "## Iteration $i - $STORY_ID: $STORY_TITLE" >> "$PROGRESS_FILE"
     echo "Started: $(date -u +"%Y-%m-%dT%H:%M:%SZ")" >> "$PROGRESS_FILE"
 
-    # Build the prompt for Claude
-    PROMPT=$(cat <<EOF
+    # Build the prompt for Claude — write to temp file to avoid shell quoting issues
+    PROMPT_FILE="/tmp/ralph_prompt_$$.txt"
+
+    cat > "$PROMPT_FILE" <<DYNAMIC_PART
 You are Ralph, an autonomous development agent building a Rock RMS MCP Server.
 
 ## Current Task
@@ -116,14 +118,17 @@ You are Ralph, an autonomous development agent building a Rock RMS MCP Server.
 3. Commit your changes with a descriptive message referencing $STORY_ID
 4. After successful completion, update prd.json to set passes: true for $STORY_ID
 5. Append learnings to scripts/ralph/progress.txt
+DYNAMIC_PART
+
+    cat >> "$PROMPT_FILE" <<'STATIC_PART'
 
 ## Project Context
 - This is a Python MCP server for Rock RMS (Grace Church's church management system)
 - Rock RMS API base: https://rock.gracechurchsc.org/api
 - Auth: POST /api/Auth/Login returns 204 with .ROCK cookie via Set-Cookie header
-- OData v3 syntax (not v4, no nested \$expand)
-- Use the \`mcp\` Python SDK for MCP server implementation
-- Use \`requests\` for HTTP calls to Rock RMS
+- OData v3 syntax (not v4, no nested $expand)
+- Use the `mcp` Python SDK for MCP server implementation
+- Use `requests` for HTTP calls to Rock RMS
 - The server communicates over stdio with Claude Desktop
 - Read-only: NO tools that create, update, or delete Rock RMS records
 - All tools filter to Pelham campus children's locations only
@@ -132,8 +137,8 @@ You are Ralph, an autonomous development agent building a Rock RMS MCP Server.
 ## Key Rock RMS Details
 - Schedule IDs: Saturday=1711, 9am=1723, 11am=1716
 - Pelham children's locations: Play House (13739), Tree House 1F (13749), Tree House 2F (13766), Quest (13776), Camp Grace (13777), Up & Out (13765), Mosaic (13762)
-- Saturday only has 3 rooms: Ladybugs (13741)→PH, Hedgehogs (13756)→TH, Squirrels (13759)→CG
-- Camp Grace groups split by group name: "1st Grade"/"2nd Grade"→CG 1/2, "3rd/4th Grade Girls"→CG 3/4 Girls, "3rd/4th Grade Boys"→CG 3/4 Boys
+- Saturday only has 3 rooms: Ladybugs (13741)->PH, Hedgehogs (13756)->TH, Squirrels (13759)->CG
+- Camp Grace groups split by group name: "1st Grade"/"2nd Grade"->CG 1/2, "3rd/4th Grade Girls"->CG 3/4 Girls, "3rd/4th Grade Boys"->CG 3/4 Boys
 
 ## Reference Implementation
 Check /Users/jonscott/Desktop/DevProjects/rock-attendance/update_gck_sheet.py for working Rock RMS auth and attendance fetching patterns.
@@ -144,7 +149,7 @@ Before marking complete:
 - [ ] pip install . works (test with pip install -e .)
 - [ ] python -m rock_rms_mcp starts without error (ctrl+c to exit)
 - [ ] Changes committed
-- [ ] prd.json updated with passes: true for $STORY_ID
+- [ ] prd.json updated with passes: true for this story
 - [ ] progress.txt updated with learnings
 
 When the story is fully complete and verified, output:
@@ -152,11 +157,11 @@ When the story is fully complete and verified, output:
 
 If ALL stories are now complete, also output:
 <promise>COMPLETE</promise>
-EOF
-)
+STATIC_PART
 
     # Run Claude Code with the prompt
-    echo "$PROMPT" | claude --dangerously-skip-permissions -p - 2>&1 | tee -a /tmp/ralph_iteration_$i.log
+    claude --dangerously-skip-permissions -p "$(cat "$PROMPT_FILE")" 2>&1 | tee -a /tmp/ralph_iteration_$i.log
+    rm -f "$PROMPT_FILE"
 
     RESULT=$?
 
