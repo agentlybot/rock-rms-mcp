@@ -41,6 +41,12 @@ SATURDAY_OVERRIDES = {
     13759: "CG 1/2",
 }
 
+LOCATION_NAMES = {
+    13739: "Play House", 13749: "Tree House 1F", 13766: "Tree House 2F",
+    13776: "Quest", 13777: "Camp Grace", 13765: "Up & Out", 13762: "Mosaic",
+    13741: "Ladybugs (PH)", 13756: "Hedgehogs (TH)", 13759: "Squirrels (CG)",
+}
+
 CATEGORY_ORDER = [
     "Play House", "Tree House 1F", "Tree House 2F", "Quest",
     "CG 1/2", "CG 3/4 Girls", "CG 3/4 Boys", "Up & Out", "Mosaic",
@@ -309,6 +315,128 @@ def search_people(
         results = filtered
 
     return {"results": results, "count": len(results)}
+
+
+def _resolve_person_name(person_alias_id: int, cache: dict[int, str]) -> str:
+    if person_alias_id in cache:
+        return cache[person_alias_id]
+    try:
+        alias = rock.get(f"PersonAlias/{person_alias_id}?$select=PersonId").json()
+        person_id = alias.get("PersonId")
+        if not person_id:
+            cache[person_alias_id] = "Unknown"
+            return "Unknown"
+        person = rock.get(f"People/{person_id}?$select=NickName,LastName").json()
+        name = f"{person.get('NickName', '')} {person.get('LastName', '')}".strip() or "Unknown"
+        cache[person_alias_id] = name
+        return name
+    except Exception:
+        cache[person_alias_id] = "Unknown"
+        return "Unknown"
+
+
+def _location_display_name(location_id: int) -> str:
+    if location_id in LOCATION_NAMES:
+        return LOCATION_NAMES[location_id]
+    try:
+        loc = rock.get(f"Locations/{location_id}?$select=Name").json()
+        name = loc.get("Name", f"Location {location_id}")
+        LOCATION_NAMES[location_id] = name
+        return name
+    except Exception:
+        return f"Location {location_id}"
+
+
+@mcp.tool()
+def get_checkin_roster(
+    date: str | None = None,
+    schedule: str | None = None,
+    location: str | None = None,
+    group: str | None = None,
+) -> dict:
+    """Get check-in roster showing who checked in for a specific service.
+
+    Args:
+        date: Date in YYYY-MM-DD format. Defaults to most recent Sunday.
+        schedule: Service time: "saturday", "9am", or "11am". Required.
+        location: Filter to a location category like "Play House", "CG 1/2", etc.
+        group: Filter to a specific group name (partial match).
+
+    Returns a list of checked-in individuals with name, group, and room,
+    sorted by location then by name.
+    """
+    if date is None:
+        date = _most_recent_sunday()
+
+    if not schedule:
+        return {"error": "schedule is required. Valid: saturday, 9am, 11am"}
+
+    key = schedule.lower().strip()
+    if key not in SCHEDULES:
+        return {"error": f"Unknown schedule '{schedule}'. Valid: saturday, 9am, 11am"}
+
+    schedule_id = SCHEDULES[key]
+    occurrences = _fetch_occurrences(date, schedule_id)
+    pelham_occs = {
+        o["Id"]: o for o in occurrences
+        if o.get("LocationId") and o["LocationId"] in ALL_PELHAM_KIDS
+    }
+
+    if not pelham_occs:
+        return {"date": date, "schedule": key, "roster": [], "count": 0}
+
+    attendances = _fetch_attendances(date)
+    group_cache: dict[int, dict | None] = {}
+    person_cache: dict[int, str] = {}
+    roster = []
+
+    for att in attendances:
+        occ_id = att.get("OccurrenceId")
+        if occ_id not in pelham_occs:
+            continue
+
+        occ = pelham_occs[occ_id]
+        loc_id = occ["LocationId"]
+        group_id = occ.get("GroupId")
+
+        if group_id and group_id not in group_cache:
+            group_cache[group_id] = _fetch_group(group_id)
+
+        group_name = ""
+        if group_id and group_cache.get(group_id):
+            group_name = group_cache[group_id].get("Name", "")
+
+        cat = _categorize(loc_id, group_name, key)
+        if not cat:
+            continue
+
+        if location and cat != location:
+            continue
+        if group and group.lower() not in group_name.lower():
+            continue
+
+        person_alias_id = att.get("PersonAliasId")
+        if not person_alias_id:
+            continue
+
+        person_name = _resolve_person_name(person_alias_id, person_cache)
+        loc_display = _location_display_name(loc_id)
+
+        roster.append({
+            "name": person_name,
+            "group": group_name,
+            "location": loc_display,
+            "category": cat,
+        })
+
+    roster.sort(key=lambda r: (r["category"], r["name"]))
+
+    return {
+        "date": date,
+        "schedule": key,
+        "roster": roster,
+        "count": len(roster),
+    }
 
 
 def main():

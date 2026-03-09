@@ -63,7 +63,7 @@
         "Results sorted by location then by name"
       ],
       "priority": 4,
-      "passes": false
+      "passes": true
     },
     {
       "id": "US-005",

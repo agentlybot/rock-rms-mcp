@@ -61,3 +61,23 @@ Completed: 2026-03-09
 - Groups/GetFamilies/{personId} returns family groups with Members[].Person nested objects
 - GroupMembers can be filtered by PersonId and expanded with Group to check group membership
 - OData v3 allows $expand=Group on GroupMembers for single-level expansion
+Completed: 2026-03-09T14:18:58Z
+
+## Iteration 4 - US-004: Get check-in roster tool
+Started: 2026-03-09T14:19:00Z
+Completed: 2026-03-09
+
+### What was built
+- get_checkin_roster tool: accepts date, schedule (required), optional location and group filters
+- Resolves PersonAliasId → PersonId → Person name via two-step API lookup
+- Caches person lookups in a dict within each request to minimize redundant API calls
+- Caches location name lookups via LOCATION_NAMES dict (persists across calls)
+- Returns roster entries with name, group name, location/room name, category
+- Results sorted by category (location bucket) then by person name
+- Reuses existing _fetch_occurrences, _fetch_attendances, _fetch_group, _categorize helpers
+
+### Learnings
+- Rock RMS PersonAlias/{id} returns PersonId which can then be used with People/{id} for name
+- PersonAliasId is the foreign key in Attendance records, not PersonId directly
+- Two-step resolution (alias→person) means caching is critical to avoid O(2n) API calls per roster
+- LOCATION_NAMES dict serves dual purpose: hardcoded known names + dynamic cache for unknown location IDs
