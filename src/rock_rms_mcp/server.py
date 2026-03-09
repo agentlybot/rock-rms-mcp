@@ -7,6 +7,12 @@ from rock_rms_mcp.client import RockClient
 mcp = FastMCP("rock-rms")
 rock = RockClient()
 
+# ── Children's group type keywords for filtering ────────────────────
+CHILDREN_GROUP_KEYWORDS = {
+    "camp grace", "tree house", "play house", "mosaic",
+    "quest", "up & out", "up and out", "ladybugs", "hedgehogs", "squirrels",
+}
+
 # ── Schedule IDs ─────────────────────────────────────────────────────
 SCHEDULES = {"saturday": 1711, "9am": 1723, "11am": 1716}
 SCHEDULE_NAMES = {1711: "Saturday", 1723: "9am", 1716: "11am"}
@@ -214,6 +220,95 @@ def get_attendance(
         result["grand_total"] += service_total
 
     return result
+
+
+@mcp.tool()
+def search_people(
+    name: str,
+    group_type: str | None = None,
+) -> dict:
+    """Search for children, families, or volunteers by name in Rock RMS.
+
+    Args:
+        name: Name to search for (first, last, or full name).
+        group_type: Optional filter to children's group types. Use one of:
+            "Camp Grace", "Tree House", "Play House", "Mosaic" to filter
+            to people in those children's ministry groups.
+
+    Returns a list of up to 10 matching people with name, age, birthdate,
+    email, phone, and family members.
+    """
+    if not name or not name.strip():
+        return {"error": "name parameter is required"}
+
+    resp = rock.get(f"People/Search?name={name}&includeDetails=true&top=10")
+    people = resp.json()
+
+    if not isinstance(people, list):
+        return {"results": [], "count": 0}
+
+    results = []
+    for person in people[:10]:
+        person_id = person.get("Id")
+
+        phones = []
+        for phone in (person.get("PhoneNumbers") or []):
+            number = phone.get("NumberFormatted") or phone.get("Number", "")
+            if number:
+                phones.append({
+                    "type": phone.get("NumberTypeValue", {}).get("Value", "Unknown"),
+                    "number": number,
+                })
+
+        family_members = []
+        try:
+            families = rock.get(f"Groups/GetFamilies/{person_id}").json()
+            for fam in (families if isinstance(families, list) else []):
+                for member in (fam.get("Members") or []):
+                    mp = member.get("Person") or {}
+                    mid = mp.get("Id")
+                    if mid and mid != person_id:
+                        family_members.append({
+                            "name": f"{mp.get('NickName', '')} {mp.get('LastName', '')}".strip(),
+                            "role": (member.get("GroupRole") or {}).get("Name", ""),
+                            "age": mp.get("Age"),
+                        })
+        except Exception:
+            pass
+
+        entry = {
+            "id": person_id,
+            "name": f"{person.get('NickName', '')} {person.get('LastName', '')}".strip(),
+            "full_name": f"{person.get('FirstName', '')} {person.get('NickName', '') if person.get('NickName') != person.get('FirstName') else ''} {person.get('LastName', '')}".strip().replace("  ", " "),
+            "age": person.get("Age"),
+            "birthdate": person.get("BirthDate", "")[:10] if person.get("BirthDate") else None,
+            "email": person.get("Email"),
+            "phones": phones,
+            "family_members": family_members,
+        }
+        results.append(entry)
+
+    if group_type:
+        gt_lower = group_type.lower().strip()
+        filtered = []
+        for entry in results:
+            try:
+                memberships = rock.get(
+                    f"GroupMembers?$filter=PersonId eq {entry['id']} and GroupMemberStatus eq 'Active'"
+                    f"&$select=GroupId"
+                    f"&$expand=Group"
+                    f"&$top=50"
+                ).json()
+                for gm in (memberships if isinstance(memberships, list) else []):
+                    gname = ((gm.get("Group") or {}).get("Name") or "").lower()
+                    if gt_lower in gname:
+                        filtered.append(entry)
+                        break
+            except Exception:
+                pass
+        results = filtered
+
+    return {"results": results, "count": len(results)}
 
 
 def main():

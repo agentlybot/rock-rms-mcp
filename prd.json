@@ -49,7 +49,7 @@
         "Can filter to children's group types (Camp Grace, Tree House, Play House, Mosaic)"
       ],
       "priority": 3,
-      "passes": false
+      "passes": true
     },
     {
       "id": "US-004",

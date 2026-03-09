@@ -42,3 +42,22 @@ Completed: 2026-03-09
 - Reference implementation pattern: fetch all attendances for day (no schedule filter on Attendances), then filter by matching OccurrenceId from schedule-filtered occurrences
 - Group name lookup needed for Camp Grace categorization — cache group lookups to minimize API calls
 - OData v3 datetime literal format: datetime'YYYY-MM-DD' (no T or Z suffix for date-only)
+Completed: 2026-03-09T14:17:16Z
+
+## Iteration 3 - US-003: Search people tool
+Started: 2026-03-09T14:17:18Z
+Completed: 2026-03-09
+
+### What was built
+- search_people tool: accepts name (string), optional group_type filter
+- Queries GET /api/People/Search?name={name}&includeDetails=true&top=10
+- Returns full name, age/birthdate, email, phones, family members
+- Family members fetched via /api/Groups/GetFamilies/{personId}
+- Group type filtering via GroupMembers endpoint with Group expand
+- Supports filtering to children's groups: Camp Grace, Tree House, Play House, Mosaic
+
+### Learnings
+- Rock RMS People/Search endpoint accepts name query param and returns list with PhoneNumbers included
+- Groups/GetFamilies/{personId} returns family groups with Members[].Person nested objects
+- GroupMembers can be filtered by PersonId and expanded with Group to check group membership
+- OData v3 allows $expand=Group on GroupMembers for single-level expansion
