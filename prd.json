@@ -1,0 +1,110 @@
+{
+  "project": "rock-rms-mcp",
+  "branchName": "ralph/rock-rms-mcp",
+  "description": "MCP server wrapping Rock RMS API for Grace Church children's ministry attendance, people search, rosters, and trends",
+  "userStories": [
+    {
+      "id": "US-001",
+      "title": "Project scaffold and Rock RMS authentication",
+      "description": "Create Python MCP server scaffold with pyproject.toml, RockClient class with cookie-based auth, auto-reauth on 403, and Claude Desktop integration via stdio",
+      "acceptanceCriteria": [
+        "Python project with pyproject.toml using mcp SDK and requests",
+        "RockClient class authenticates via POST /api/Auth/Login",
+        "Handles 204 response with .ROCK cookie from Set-Cookie header",
+        "Re-authenticates automatically on 403 and retries the request once",
+        "Credentials read from ROCK_USERNAME and ROCK_PASSWORD env vars",
+        "MCP server starts via python -m rock_rms_mcp and communicates over stdio",
+        "pip install . works"
+      ],
+      "priority": 1,
+      "passes": false
+    },
+    {
+      "id": "US-002",
+      "title": "Get attendance counts tool",
+      "description": "Tool to query children's check-in attendance by date, service, and location category. Fetches AttendanceOccurrences and Attendances from Rock RMS, buckets by Pelham children's locations.",
+      "acceptanceCriteria": [
+        "Tool get_attendance accepts date (YYYY-MM-DD), optional schedule (saturday/9am/11am), optional location_group",
+        "Queries AttendanceOccurrences filtered by date + schedule ID + Pelham kids locations",
+        "Queries Attendances where DidAttend eq true, joins to occurrences by OccurrenceId",
+        "Returns counts bucketed by category: Play House, Tree House 1F, Tree House 2F, Quest, CG 1/2, CG 3/4 Girls, CG 3/4 Boys, Up & Out, Mosaic",
+        "Saturday applies room overrides: Ladybugs→PH, Hedgehogs→TH, Squirrels→CG",
+        "Camp Grace locations split by group name: 1st/2nd Grade → CG 1/2, 3rd/4th Grade Girls → CG 3/4 Girls, 3rd/4th Grade Boys → CG 3/4 Boys, Up and Out → Up & Out",
+        "If no schedule specified returns all services for that date",
+        "If no date specified defaults to most recent Sunday",
+        "Returns totals per service and grand total"
+      ],
+      "priority": 2,
+      "passes": false
+    },
+    {
+      "id": "US-003",
+      "title": "Search people tool",
+      "description": "Tool to search for children, families, or volunteers by name using Rock RMS People/Search endpoint",
+      "acceptanceCriteria": [
+        "Tool search_people accepts name (string), optional group_type filter",
+        "Queries GET /api/People/Search?name={name}&includeDetails=true",
+        "Returns full name, age/birthdate, email, phone, family members",
+        "Limits results to top 10 matches",
+        "Can filter to children's group types (Camp Grace, Tree House, Play House, Mosaic)"
+      ],
+      "priority": 3,
+      "passes": false
+    },
+    {
+      "id": "US-004",
+      "title": "Get check-in roster tool",
+      "description": "Tool to see exactly who checked in for a specific service date and room, resolving PersonAliasIds to names",
+      "acceptanceCriteria": [
+        "Tool get_checkin_roster accepts date, schedule, optional location or group filter",
+        "Returns list of checked-in individuals with name, group name, location/room name",
+        "Resolves PersonAliasId to Person name via /api/PersonAlias/{id} and /api/People/{id}",
+        "Caches person lookups within a single request to minimize API calls",
+        "Results sorted by location then by name"
+      ],
+      "priority": 4,
+      "passes": false
+    },
+    {
+      "id": "US-005",
+      "title": "Get group roster tool",
+      "description": "Tool to view the full member roster for a specific group (e.g. Kerplunk, 3rd Grade Boys) independent of check-in",
+      "acceptanceCriteria": [
+        "Tool get_group_roster accepts group_name (string) or group_id (int)",
+        "Searches groups via GET /api/Groups?$filter=contains(Name,'{name}') or by ID",
+        "Fetches group members via GET /api/Groups/{id}/Members",
+        "Returns member name, role (Leader/Member), status (Active/Inactive)",
+        "Includes group metadata: name, description, group type, schedule, location"
+      ],
+      "priority": 5,
+      "passes": false
+    },
+    {
+      "id": "US-006",
+      "title": "Attendance trends tool",
+      "description": "Tool to compare attendance across multiple weeks for spotting trends and planning staffing",
+      "acceptanceCriteria": [
+        "Tool get_attendance_trends accepts start_date, end_date, optional schedule, optional location_group",
+        "Fetches attendance for each Sunday and preceding Saturday in the date range",
+        "Returns per-week breakdown by service and category",
+        "Includes summary stats: average, min, max, trend direction",
+        "Handles missing weeks (holidays, cancellations) showing 0 or no service"
+      ],
+      "priority": 6,
+      "passes": false
+    },
+    {
+      "id": "US-007",
+      "title": "List schedules and locations reference tool",
+      "description": "Static reference tools that return available Pelham children's schedules and location hierarchy so the LLM knows valid query options",
+      "acceptanceCriteria": [
+        "Tool list_schedules returns all Pelham children's schedule IDs with names and times",
+        "Tool list_locations returns the Pelham children's building location hierarchy with IDs and room names",
+        "Both return hardcoded Pelham data with no API call needed",
+        "Output formatted for easy LLM consumption"
+      ],
+      "priority": 7,
+      "passes": false
+    }
+  ]
+}
