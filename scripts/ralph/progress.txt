@@ -21,3 +21,24 @@ Completed: 2026-03-09
 - macOS doesn't have `timeout` command; use backgrounding + sleep + kill instead
 - requests.Session handles .ROCK cookie jar automatically after POST to /Auth/Login
 - Server blocks on stdio as expected; tested by backgrounding and killing after 2s
+Completed: 2026-03-09T14:15:09Z
+
+## Iteration 2 - US-002: Get attendance counts tool
+Started: 2026-03-09T14:15:11Z
+Completed: 2026-03-09
+
+### What was built
+- get_attendance tool: accepts date, schedule, location_group parameters
+- Queries AttendanceOccurrences filtered by date + schedule + Pelham kids locations
+- Queries Attendances with DidAttend eq true, joins by OccurrenceId
+- Returns counts bucketed by 9 categories: Play House, TH 1F/2F, Quest, CG 1/2, CG 3/4 Girls/Boys, Up & Out, Mosaic
+- Saturday override logic: Ladybugs→PH, Hedgehogs→TH, Squirrels→CG
+- Camp Grace split by group name pattern matching
+- Defaults to most recent Sunday when no date given
+- Returns per-service totals and grand total
+
+### Learnings
+- uv (not pip) is the package manager; pip not installed in venv
+- Reference implementation pattern: fetch all attendances for day (no schedule filter on Attendances), then filter by matching OccurrenceId from schedule-filtered occurrences
+- Group name lookup needed for Camp Grace categorization — cache group lookups to minimize API calls
+- OData v3 datetime literal format: datetime'YYYY-MM-DD' (no T or Z suffix for date-only)
