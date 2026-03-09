@@ -81,3 +81,23 @@ Completed: 2026-03-09
 - PersonAliasId is the foreign key in Attendance records, not PersonId directly
 - Two-step resolution (alias→person) means caching is critical to avoid O(2n) API calls per roster
 - LOCATION_NAMES dict serves dual purpose: hardcoded known names + dynamic cache for unknown location IDs
+Completed: 2026-03-09T14:20:47Z
+
+## Iteration 5 - US-005: Get group roster tool
+Started: 2026-03-09T14:20:49Z
+Completed: 2026-03-09
+
+### What was built
+- get_group_roster tool: accepts group_name (string) or group_id (int)
+- Searches groups via GET /api/Groups?$filter=substringof('{name}', Name) (OData v3 syntax)
+- Fetches group members via GET /api/GroupMembers?$filter=GroupId eq {id}&$expand=Person,GroupRole
+- Returns member name, role (Leader/Member), status (Active/Inactive/Pending)
+- Includes group metadata: name, description, group type, schedule, location
+- Results sorted: Active before Inactive, Leaders before Members, then alphabetical
+- Returns single group object if one match, array if multiple matches
+
+### Learnings
+- OData v3 uses substringof('{value}', PropertyName) not contains(PropertyName, '{value}') for string contains
+- GroupMemberStatus is an enum: 0=Inactive, 1=Active, 2=Pending
+- $expand=Person,GroupRole on GroupMembers gives nested person details and role name in one call
+- GroupLocations is a collection on Group; first entry's LocationId gives primary location

@@ -439,5 +439,110 @@ def get_checkin_roster(
     }
 
 
+@mcp.tool()
+def get_group_roster(
+    group_name: str | None = None,
+    group_id: int | None = None,
+) -> dict:
+    """Get the full member roster for a Rock RMS group (independent of check-in).
+
+    Args:
+        group_name: Name or partial name of the group to search for (e.g. "Kerplunk", "3rd Grade Boys").
+        group_id: Exact Rock RMS group ID. If provided, group_name is ignored.
+
+    Returns group metadata (name, description, group type, schedule, location)
+    and a list of members with name, role (Leader/Member), and status (Active/Inactive).
+    """
+    if not group_name and not group_id:
+        return {"error": "Either group_name or group_id is required"}
+
+    if group_id:
+        try:
+            grp = rock.get(
+                f"Groups/{group_id}"
+                f"?$select=Id,Name,Description,GroupTypeId"
+                f"&$expand=GroupType,GroupLocations,Schedule"
+            ).json()
+        except Exception:
+            return {"error": f"Group with ID {group_id} not found"}
+        groups = [grp] if grp.get("Id") else []
+    else:
+        safe_name = group_name.replace("'", "''")
+        resp = rock.get(
+            f"Groups"
+            f"?$filter=substringof('{safe_name}', Name)"
+            f"&$select=Id,Name,Description,GroupTypeId"
+            f"&$expand=GroupType,GroupLocations,Schedule"
+            f"&$top=10"
+        )
+        groups = resp.json() if isinstance(resp.json(), list) else []
+
+    if not groups:
+        return {"error": f"No groups found matching '{group_name or group_id}'", "results": []}
+
+    results = []
+    for grp in groups:
+        gid = grp["Id"]
+
+        group_type_name = ""
+        gt = grp.get("GroupType")
+        if isinstance(gt, dict):
+            group_type_name = gt.get("Name", "")
+
+        schedule_name = ""
+        sched = grp.get("Schedule")
+        if isinstance(sched, dict):
+            schedule_name = sched.get("Name", "")
+
+        location_name = ""
+        gl = grp.get("GroupLocations")
+        if isinstance(gl, list) and gl:
+            loc_id = gl[0].get("LocationId")
+            if loc_id:
+                location_name = _location_display_name(loc_id)
+
+        members_resp = rock.get(
+            f"GroupMembers"
+            f"?$filter=GroupId eq {gid}"
+            f"&$expand=Person,GroupRole"
+            f"&$select=PersonId,GroupMemberStatus,GroupRoleId"
+            f"&$top=500"
+        )
+        members_data = members_resp.json() if isinstance(members_resp.json(), list) else []
+
+        STATUS_MAP = {0: "Inactive", 1: "Active", 2: "Pending"}
+        members = []
+        for m in members_data:
+            person = m.get("Person") or {}
+            role_obj = m.get("GroupRole") or {}
+            nick = person.get("NickName") or person.get("FirstName", "")
+            last = person.get("LastName", "")
+            name = f"{nick} {last}".strip() or "Unknown"
+
+            members.append({
+                "name": name,
+                "role": role_obj.get("Name", "Member"),
+                "status": STATUS_MAP.get(m.get("GroupMemberStatus"), "Unknown"),
+            })
+
+        members.sort(key=lambda x: (x["status"] != "Active", x["role"] != "Leader", x["name"]))
+
+        results.append({
+            "group_id": gid,
+            "group_name": grp.get("Name", ""),
+            "description": grp.get("Description") or "",
+            "group_type": group_type_name,
+            "schedule": schedule_name,
+            "location": location_name,
+            "members": members,
+            "member_count": len(members),
+            "active_count": sum(1 for m in members if m["status"] == "Active"),
+        })
+
+    if len(results) == 1:
+        return results[0]
+    return {"groups": results, "count": len(results)}
+
+
 def main():
     mcp.run(transport="stdio")
