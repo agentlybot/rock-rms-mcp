@@ -1,0 +1,19 @@
+[build-system]
+requires = ["setuptools>=68.0"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "rock-rms-mcp"
+version = "0.1.0"
+description = "MCP server for Rock RMS children's ministry data"
+requires-python = ">=3.10"
+dependencies = [
+    "mcp[cli]>=1.0.0",
+    "requests>=2.31.0",
+]
+
+[project.scripts]
+rock-rms-mcp = "rock_rms_mcp.server:main"
+
+[tool.setuptools.packages.find]
+where = ["src"]

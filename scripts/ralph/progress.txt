@@ -1,0 +1,23 @@
+# Ralph Progress Log
+
+Project: rock-rms-mcp
+Branch: ralph/rock-rms-mcp
+Started: 2026-03-09T14:08:01Z
+
+
+## Iteration 1 - US-001: Project scaffold and Rock RMS authentication
+Started: 2026-03-09T14:13:13Z
+Completed: 2026-03-09
+
+### What was built
+- pyproject.toml with mcp[cli] and requests dependencies
+- src/rock_rms_mcp/ package: __init__.py, __main__.py, client.py, server.py
+- RockClient class with cookie-based auth, auto-reauth on 403
+- FastMCP server with stdio transport and a ping tool for connectivity check
+
+### Learnings
+- mcp SDK v1.26.0 installed; FastMCP is in mcp.server.fastmcp
+- pip3 (not pip) is the available command on this machine
+- macOS doesn't have `timeout` command; use backgrounding + sleep + kill instead
+- requests.Session handles .ROCK cookie jar automatically after POST to /Auth/Login
+- Server blocks on stdio as expected; tested by backgrounding and killing after 2s
